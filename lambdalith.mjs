@@ -55,7 +55,7 @@ export let deploy = {
     cloudformation.Resources.PrivateSubnet = {
       Type: "AWS::EC2::Subnet",
       Properties: {
-        VpcId: { "Ref": "MyVPC" },
+        VpcId: { Ref: "MyVPC" },
         CidrBlock: "10.0.2.0/24",
         AvailabilityZone: "us-west-2a"
       }
@@ -64,7 +64,7 @@ export let deploy = {
     cloudformation.Resources.PrivateSubnet2 = {
       Type: "AWS::EC2::Subnet",
       Properties: {
-        VpcId: { "Ref": "MyVPC" },
+        VpcId: { Ref: "MyVPC" },
         CidrBlock: "10.0.3.0/24",
         AvailabilityZone: "us-west-2b"
       }
@@ -78,7 +78,7 @@ export let deploy = {
       Type: "AWS::EC2::NatGateway",
       Properties: {
         AllocationId: { "Fn::GetAtt": ["NatEip", "AllocationId"] },
-        SubnetId: { "Ref": "PublicSubnet" }
+        SubnetId: { Ref: "PublicSubnet" }
       }
     }
 
@@ -137,6 +137,75 @@ export let deploy = {
           { Ref: "PrivateSubnet2" }
         ]
       }
+    }
+
+    cloudformation.Resources.MySecret = {
+      Type: "AWS::SecretsManager::Secret",
+      Properties: {
+        Name: "MyDBSecret",
+        Description: "This is my database secret",
+        SecretString: '{"username":"superuser","password":"adminpassword"}'
+      }
+    }
+
+    cloudformation.Resources.MyDBProxy = {
+      Type: "AWS::RDS::DBProxy",
+      Properties: {
+        DBProxyName: "MyDBProxy",
+        DebugLogging: false,
+        EngineFamily: "POSTGRESQL",
+        IdleClientTimeout: 1800,
+        RoleArn: { "Fn::GetAtt": ["RDSProxyRole", "Arn"] },
+        Auth: [
+          {
+            AuthScheme: "SECRETS",
+            SecretArn: { Ref: "MySecret" }
+          }
+        ],
+        VpcSubnetIds: [
+          { Ref: "PrivateSubnet" },
+          { Ref: "PrivateSubnet2" }
+        ],
+        VpcSecurityGroupIds: [
+          { "Ref": "DBSecurityGroup" }
+        ]
+      }
+    }
+
+    cloudformation.Resources.RDSProxyRole = {
+      Type: "AWS::IAM::Role",
+      "Properties": {
+    "AssumeRolePolicyDocument": {
+      "Version": "2012-10-17",
+      "Statement": [
+        {
+          "Effect": "Allow",
+          "Principal": {
+            "Service": "rds.amazonaws.com"
+          },
+          "Action": "sts:AssumeRole"
+        }
+      ]
+    },
+    "Policies": [
+      {
+        "PolicyName": "rds-proxy-policy",
+        "PolicyDocument": {
+          "Version": "2012-10-17",
+          "Statement": [
+            {
+              "Effect": "Allow",
+              "Action": [
+                "rds-db:connect"
+              ],
+              "Resource": "*"
+            }
+          ]
+        }
+      }
+    ]
+  }
+
     }
 
     return cloudformation
