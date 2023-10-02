@@ -1,5 +1,5 @@
 import fastify from 'fastify'
-import pg from 'fastify-postgres'
+import pg from '@fastify/postgres'
 import aws from '@fastify/aws-lambda'
 import routes from './routes.cjs'
 
